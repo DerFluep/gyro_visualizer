@@ -1,0 +1,7 @@
+default_fqbn: arduino:avr:uno
+default_port: /dev/ttyACM0
+default_port_config:
+  baudrate: 9600
+default_protocol: serial
+default_profile: uno
+
