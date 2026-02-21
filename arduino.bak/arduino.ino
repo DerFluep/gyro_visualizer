@@ -68,11 +68,18 @@ void setup() {
 }
 
 void loop() {
-  mpu.readData();
-  Serial.print(mpu.accelX() / 16384.0);
-  Serial.print(" | ");
-  Serial.print(mpu.accelY() / 16384.0);
-  Serial.print(" | ");
-  Serial.println(mpu.accelZ() / 16384.0);
+  // mpu.readData();
+  // Serial.write(127);
+  // Serial.write(mpu.accelX());
+  // Serial.write(mpu.accelY());
+  // Serial.write(mpu.accelZ());
+  Serial.write(0);
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(ACCX);
+  Wire.endTransmission();
+  Wire.requestFrom(MPU_addr, 6);
+  for (int n = 0; n < 6; n++) {
+    Serial.write(Wire.read());
+  }
   delay(100);
 }
