@@ -109,16 +109,24 @@ impl MPU6050 {
     }
 
     pub fn calibrate(&mut self, i2c: &mut I2c) -> Result<(), Error> {
+        let temp_sensor = 3;
         let mut offsets: [i32; 7] = [0; 7];
         for _ in 0..200 {
             self.read_data(i2c)?;
             for (n, offset) in offsets.iter_mut().enumerate() {
+                if n == temp_sensor {
+                    // skip Temp calibration
+                    continue;
+                }
                 *offset += self.data[n] as i32;
             }
             arduino_hal::delay_ms(1);
         }
 
         for (n, val) in offsets.iter_mut().enumerate() {
+            if n == temp_sensor {
+                continue;
+            }
             self.offsets[n] = (*val / 200) as i16;
         }
         self.offsets[2] -= 16384;
@@ -184,7 +192,14 @@ impl MPU6050 {
         }
         ufmt::uwriteln!(serial, "Acc Z: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
-        ufmt::uwriteln!(serial, "").unwrap_infallible();
+        // Temp
+        let mut data = self.get_data(Sensor::Temp);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        ufmt::uwriteln!(serial, "Temp: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr X
         let mut data = self.get_data(Sensor::GyrX);
