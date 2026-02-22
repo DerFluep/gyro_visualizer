@@ -14,17 +14,17 @@ use crate::mpu6050::Dlpf;
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
+    let mut led = pins.d13.into_output();
 
     let mut i2c = I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
-        50000,
+        100000,
     );
     let mut serial = default_serial!(dp, pins, 57600);
 
-    let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Zero)
-    {
+    let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Six) {
         Ok(v) => v,
         Err(e) => {
             ufmt::uwriteln!(&mut serial, "Error while creating MPU6050 object: {:?}", e)
@@ -50,6 +50,7 @@ fn main() -> ! {
             }
         }
         mpu6050.print(&mut serial);
+        led.toggle();
         arduino_hal::delay_ms(250);
     }
 }
