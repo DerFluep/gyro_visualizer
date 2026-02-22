@@ -1,4 +1,7 @@
-use arduino_hal::{prelude::*, I2c};
+use arduino_hal::{i2c::Error, prelude::*, I2c};
+use core::convert::Infallible;
+use ufmt::uWrite;
+use ufmt_float::uFmt_f32;
 
 #[allow(dead_code)]
 pub enum AccConfig {
@@ -29,7 +32,6 @@ pub enum Sensor {
 }
 
 pub struct MPU6050 {
-    i2c: I2c,
     gyr_conf: GyrConfig,
     acc_conf: AccConfig,
     raw_data: [u8; 14],
@@ -61,36 +63,35 @@ impl MPU6050 {
     #[allow(dead_code)]
     pub const GYRZ: u8 = 0x47;
 
-    pub fn new(mut i2c: I2c, gyr_conf: GyrConfig, acc_conf: AccConfig) -> MPU6050 {
+    pub fn new(i2c: &mut I2c, gyr_conf: GyrConfig, acc_conf: AccConfig) -> Result<MPU6050, Error> {
         // reset Board
-        i2c.write(MPU6050::MPU_ADR, &[0x6B, 0b00000001]).unwrap(); // use internal
-                                                                   // GyrX as Clock Source
-        i2c.write(MPU6050::MPU_ADR, &[0x6C, 0x00]).unwrap(); // Disable standby mode
+        i2c.write(MPU6050::MPU_ADR, &[0x6B, 0b00000001])?; // use internal
+                                                           // GyrX as Clock Source
+        i2c.write(MPU6050::MPU_ADR, &[0x6C, 0x00])?; // Disable standby mode
 
         // Gyro config
         match gyr_conf {
-            GyrConfig::Gyr250 => i2c.write(MPU6050::MPU_ADR, &[0x1B, 0b00000000]).unwrap(),
-            GyrConfig::Gyr500 => i2c.write(MPU6050::MPU_ADR, &[0x1B, 0b00001000]).unwrap(),
-            GyrConfig::Gyr1000 => i2c.write(MPU6050::MPU_ADR, &[0x1B, 0b00100000]).unwrap(),
-            GyrConfig::Gyr2000 => i2c.write(MPU6050::MPU_ADR, &[0x1B, 0b00110000]).unwrap(),
+            GyrConfig::Gyr250 => i2c.write(MPU6050::MPU_ADR, &[0x1B, 0b00000000])?,
+            GyrConfig::Gyr500 => i2c.write(MPU6050::MPU_ADR, &[0x1B, 0b00001000])?,
+            GyrConfig::Gyr1000 => i2c.write(MPU6050::MPU_ADR, &[0x1B, 0b00100000])?,
+            GyrConfig::Gyr2000 => i2c.write(MPU6050::MPU_ADR, &[0x1B, 0b00110000])?,
         }
 
         // Accelerometer config
         match acc_conf {
-            AccConfig::Acc2g => i2c.write(MPU6050::MPU_ADR, &[0x1C, 0b00000000]).unwrap(),
-            AccConfig::Acc4g => i2c.write(MPU6050::MPU_ADR, &[0x1C, 0b00001000]).unwrap(),
-            AccConfig::Acc8g => i2c.write(MPU6050::MPU_ADR, &[0x1C, 0b00010000]).unwrap(),
-            AccConfig::Acc16g => i2c.write(MPU6050::MPU_ADR, &[0x1C, 0b00110000]).unwrap(),
+            AccConfig::Acc2g => i2c.write(MPU6050::MPU_ADR, &[0x1C, 0b00000000])?,
+            AccConfig::Acc4g => i2c.write(MPU6050::MPU_ADR, &[0x1C, 0b00001000])?,
+            AccConfig::Acc8g => i2c.write(MPU6050::MPU_ADR, &[0x1C, 0b00010000])?,
+            AccConfig::Acc16g => i2c.write(MPU6050::MPU_ADR, &[0x1C, 0b00110000])?,
         }
 
-        MPU6050 {
-            i2c,
+        Ok(MPU6050 {
             acc_conf,
             gyr_conf,
             raw_data: [0; 14],
             data: [0; 7],
             offsets: [0; 7],
-        }
+        })
     }
 
     fn convert_data(&mut self) {
@@ -99,21 +100,20 @@ impl MPU6050 {
         }
     }
 
-    pub fn read_data(&mut self) {
-        self.i2c
-            .write_read(
-                MPU6050::MPU_ADR,
-                &[MPU6050::SENSORS_START],
-                &mut self.raw_data,
-            )
-            .unwrap();
+    pub fn read_data(&mut self, i2c: &mut I2c) -> Result<(), Error> {
+        i2c.write_read(
+            MPU6050::MPU_ADR,
+            &[MPU6050::SENSORS_START],
+            &mut self.raw_data,
+        )?;
         self.convert_data();
+        Ok(())
     }
 
-    pub fn calibrate(&mut self) {
+    pub fn calibrate(&mut self, i2c: &mut I2c) -> Result<(), Error> {
         let mut offsets: [i32; 7] = [0; 7];
         for _ in 0..200 {
-            self.read_data();
+            self.read_data(i2c)?;
             for (n, offset) in offsets.iter_mut().enumerate() {
                 *offset += self.data[n] as i32;
             }
@@ -124,6 +124,8 @@ impl MPU6050 {
             self.offsets[n] = (*val / 200) as i16;
         }
         self.offsets[2] -= 16384;
+
+        Ok(())
     }
 
     pub fn get_data(&self, sensor: Sensor) -> f32 {
@@ -154,5 +156,68 @@ impl MPU6050 {
             Sensor::GyrZ => return (self.data[6] - self.offsets[6]) as f32 / gyr_divider,
             Sensor::AccXRaw => return self.data[0] as f32,
         }
+    }
+
+    pub fn print<W>(&self, serial: &mut W)
+    where
+        W: uWrite<Error = Infallible>,
+    {
+        // Acc X
+        let mut data = self.get_data(Sensor::AccX);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        ufmt::uwriteln!(serial, "Acc X: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Acc Y
+        let mut data = self.get_data(Sensor::AccY);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        ufmt::uwriteln!(serial, "Acc Y: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Acc Z
+        let mut data = self.get_data(Sensor::AccZ);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        ufmt::uwriteln!(serial, "Acc Z: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        ufmt::uwriteln!(serial, "").unwrap_infallible();
+
+        // Gyr X
+        let mut data = self.get_data(Sensor::GyrX);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        ufmt::uwriteln!(serial, "Gyr X {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Gyr Y
+        let mut data = self.get_data(Sensor::GyrY);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        ufmt::uwriteln!(serial, "Gyr Y {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Gyr Z
+        let mut data = self.get_data(Sensor::GyrZ);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        ufmt::uwriteln!(serial, "Gyr Z {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        ufmt::uwriteln!(serial, "_______").unwrap_infallible();
     }
 }
