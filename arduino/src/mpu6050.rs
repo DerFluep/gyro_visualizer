@@ -26,7 +26,6 @@ pub enum Sensor {
     GyrX,
     GyrY,
     GyrZ,
-    AccXRaw,
 }
 
 /// |         |   ACCELEROMETER    |           GYROSCOPE              |
@@ -39,6 +38,7 @@ pub enum Sensor {
 /// |4        | 21Hz      | 8.5ms  | 20Hz      | 8.3ms  | 1kHz        |
 /// |5        | 10Hz      | 13.8ms | 10Hz      | 13.4ms | 1kHz        |
 /// |6        | 5Hz       | 19.0ms | 5Hz       | 18.6ms | 1kHz        |
+#[allow(dead_code)]
 pub enum Dlpf {
     Zero,
     One,
@@ -188,14 +188,25 @@ impl MPU6050 {
         }
 
         match sensor {
-            Sensor::AccX => return (self.data[0] - self.offsets[0]) as f32 / acc_divider,
-            Sensor::AccY => return (self.data[1] - self.offsets[1]) as f32 / acc_divider,
-            Sensor::AccZ => return (self.data[2] - self.offsets[2]) as f32 / acc_divider,
+            Sensor::AccX => {
+                return self.data[0].saturating_sub(self.offsets[0]) as f32 / acc_divider
+            }
+            Sensor::AccY => {
+                return self.data[1].saturating_sub(self.offsets[1]) as f32 / acc_divider
+            }
+            Sensor::AccZ => {
+                return self.data[2].saturating_sub(self.offsets[2]) as f32 / acc_divider
+            }
             Sensor::Temp => return self.data[3] as f32 / 340.0 + 36.53,
-            Sensor::GyrX => return (self.data[4] - self.offsets[4]) as f32 / gyr_divider,
-            Sensor::GyrY => return (self.data[5] - self.offsets[5]) as f32 / gyr_divider,
-            Sensor::GyrZ => return (self.data[6] - self.offsets[6]) as f32 / gyr_divider,
-            Sensor::AccXRaw => return self.data[0] as f32,
+            Sensor::GyrX => {
+                return self.data[4].saturating_sub(self.offsets[4]) as f32 / gyr_divider
+            }
+            Sensor::GyrY => {
+                return self.data[5].saturating_sub(self.offsets[5]) as f32 / gyr_divider
+            }
+            Sensor::GyrZ => {
+                return self.data[6].saturating_sub(self.offsets[6]) as f32 / gyr_divider
+            }
         }
     }
 
