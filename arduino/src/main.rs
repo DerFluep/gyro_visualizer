@@ -8,6 +8,8 @@ use panic_halt as _;
 
 use mpu6050::{AccConfig, GyrConfig, MPU6050};
 
+use crate::mpu6050::Dlpf;
+
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
@@ -21,7 +23,8 @@ fn main() -> ! {
     );
     let mut serial = default_serial!(dp, pins, 57600);
 
-    let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g) {
+    let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Zero)
+    {
         Ok(v) => v,
         Err(e) => {
             ufmt::uwriteln!(&mut serial, "Error while creating MPU6050 object: {:?}", e)

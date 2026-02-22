@@ -29,6 +29,26 @@ pub enum Sensor {
     AccXRaw,
 }
 
+/// |         |   ACCELEROMETER    |           GYROSCOPE              |
+/// |DLPF_CFG | Bandwidth | Delay  | Bandwidth | Delay  | Sample Rate |
+/// |---------|-----------|--------|-----------|--------|-------------|
+/// |0        | 260Hz     | 0ms    | 256Hz     | 0.98ms | 8kHz        |
+/// |1        | 184Hz     | 2.0ms  | 188Hz     | 1.9ms  | 1kHz        |
+/// |2        | 94Hz      | 3.0ms  | 98Hz      | 2.8ms  | 1kHz        |
+/// |3        | 44Hz      | 4.9ms  | 42Hz      | 4.8ms  | 1kHz        |
+/// |4        | 21Hz      | 8.5ms  | 20Hz      | 8.3ms  | 1kHz        |
+/// |5        | 10Hz      | 13.8ms | 10Hz      | 13.4ms | 1kHz        |
+/// |6        | 5Hz       | 19.0ms | 5Hz       | 18.6ms | 1kHz        |
+pub enum Dlpf {
+    Zero,
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+}
+
 pub struct MPU6050 {
     gyr_conf: GyrConfig,
     acc_conf: AccConfig,
@@ -61,11 +81,26 @@ impl MPU6050 {
     #[allow(dead_code)]
     pub const GYRZ: u8 = 0x47;
 
-    pub fn new(i2c: &mut I2c, gyr_conf: GyrConfig, acc_conf: AccConfig) -> Result<MPU6050, Error> {
+    pub fn new(
+        i2c: &mut I2c,
+        gyr_conf: GyrConfig,
+        acc_conf: AccConfig,
+        dlpf: Dlpf,
+    ) -> Result<MPU6050, Error> {
         // reset Board
         i2c.write(MPU6050::MPU_ADR, &[0x6B, 0b00000001])?; // use internal
                                                            // GyrX as Clock Source
         i2c.write(MPU6050::MPU_ADR, &[0x6C, 0x00])?; // Disable standby mode
+
+        match dlpf {
+            Dlpf::Zero => i2c.write(MPU6050::MPU_ADR, &[0x1A, 0b00000000])?,
+            Dlpf::One => i2c.write(MPU6050::MPU_ADR, &[0x1A, 0b00000001])?,
+            Dlpf::Two => i2c.write(MPU6050::MPU_ADR, &[0x1A, 0b00000010])?,
+            Dlpf::Three => i2c.write(MPU6050::MPU_ADR, &[0x1A, 0b00000011])?,
+            Dlpf::Four => i2c.write(MPU6050::MPU_ADR, &[0x1A, 0b00000100])?,
+            Dlpf::Five => i2c.write(MPU6050::MPU_ADR, &[0x1A, 0b00000101])?,
+            Dlpf::Six => i2c.write(MPU6050::MPU_ADR, &[0x1A, 0b00000110])?,
+        }
 
         // Gyro config
         match gyr_conf {
