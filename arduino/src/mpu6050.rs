@@ -1,6 +1,4 @@
 use arduino_hal::{i2c::Error, prelude::*, I2c};
-use core::convert::Infallible;
-use ufmt::uWrite;
 use ufmt_float::uFmt_f32;
 
 #[allow(dead_code)]
@@ -158,10 +156,7 @@ impl MPU6050 {
         }
     }
 
-    pub fn print<W>(&self, serial: &mut W)
-    where
-        W: uWrite<Error = Infallible>,
-    {
+    pub fn print(&self, serial: &mut arduino_hal::hal::usart::Usart0<arduino_hal::DefaultClock>) {
         // Acc X
         let mut data = self.get_data(Sensor::AccX);
         let mut data_sym = "";
