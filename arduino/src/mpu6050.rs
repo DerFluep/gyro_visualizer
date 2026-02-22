@@ -34,6 +34,7 @@ pub struct MPU6050 {
     acc_conf: AccConfig,
     raw_data: [u8; 14],
     data: [i16; 7],
+    offsets: [i16; 7],
 }
 
 impl MPU6050 {
@@ -88,12 +89,12 @@ impl MPU6050 {
             gyr_conf,
             raw_data: [0; 14],
             data: [0; 7],
+            offsets: [0; 7],
         }
     }
 
     fn convert_data(&mut self) {
         for n in 0..self.data.len() {
-            // self.data[n] = ((self.raw_data[n * 2] as i16) << 8) | self.raw_data[n * 2 + 1] as i16;
             self.data[n] = i16::from_be_bytes([self.raw_data[n * 2], self.raw_data[n * 2 + 1]]);
         }
     }
@@ -107,6 +108,22 @@ impl MPU6050 {
             )
             .unwrap();
         self.convert_data();
+    }
+
+    pub fn calibrate(&mut self) {
+        let mut offsets: [i32; 7] = [0; 7];
+        for _ in 0..200 {
+            self.read_data();
+            for (n, offset) in offsets.iter_mut().enumerate() {
+                *offset += self.data[n] as i32;
+            }
+            arduino_hal::delay_ms(1);
+        }
+
+        for (n, val) in offsets.iter_mut().enumerate() {
+            self.offsets[n] = (*val / 200) as i16;
+        }
+        self.offsets[2] -= 16384;
     }
 
     pub fn get_data(&self, sensor: Sensor) -> f32 {
@@ -128,13 +145,13 @@ impl MPU6050 {
         }
 
         match sensor {
-            Sensor::AccX => return self.data[0] as f32 / acc_divider,
-            Sensor::AccY => return self.data[1] as f32 / acc_divider,
-            Sensor::AccZ => return self.data[2] as f32 / acc_divider,
+            Sensor::AccX => return (self.data[0] - self.offsets[0]) as f32 / acc_divider,
+            Sensor::AccY => return (self.data[1] - self.offsets[1]) as f32 / acc_divider,
+            Sensor::AccZ => return (self.data[2] - self.offsets[2]) as f32 / acc_divider,
             Sensor::Temp => return self.data[3] as f32 / 340.0 + 36.53,
-            Sensor::GyrX => return self.data[4] as f32 / gyr_divider,
-            Sensor::GyrY => return self.data[5] as f32 / gyr_divider,
-            Sensor::GyrZ => return self.data[6] as f32 / gyr_divider,
+            Sensor::GyrX => return (self.data[4] - self.offsets[4]) as f32 / gyr_divider,
+            Sensor::GyrY => return (self.data[5] - self.offsets[5]) as f32 / gyr_divider,
+            Sensor::GyrZ => return (self.data[6] - self.offsets[6]) as f32 / gyr_divider,
             Sensor::AccXRaw => return self.data[0] as f32,
         }
     }
