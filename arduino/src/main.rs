@@ -4,11 +4,9 @@
 mod mpu6050;
 
 use arduino_hal::{default_serial, prelude::*, I2c};
+use mpu6050::{AccConfig, Dlpf, GyrConfig, MPU6050};
 use panic_halt as _;
-
-use mpu6050::{AccConfig, GyrConfig, MPU6050};
-
-use crate::mpu6050::Dlpf;
+use ufmt::uwriteln;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -27,7 +25,7 @@ fn main() -> ! {
     let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Six) {
         Ok(v) => v,
         Err(e) => {
-            ufmt::uwriteln!(&mut serial, "Error while creating MPU6050 object: {:?}", e)
+            uwriteln!(&mut serial, "Error while creating MPU6050 object: {:?}", e)
                 .unwrap_infallible();
             panic!()
         }
@@ -36,7 +34,7 @@ fn main() -> ! {
     match mpu6050.calibrate(&mut i2c) {
         Ok(_) => {}
         Err(e) => {
-            ufmt::uwriteln!(serial, "Error while Calibrating: {:?}", e).unwrap_infallible();
+            uwriteln!(serial, "Error while Calibrating: {:?}", e).unwrap_infallible();
         }
     }
 
@@ -44,7 +42,7 @@ fn main() -> ! {
         match mpu6050.read_data(&mut i2c) {
             Ok(_) => {}
             Err(e) => {
-                ufmt::uwriteln!(serial, "Error reading Sensor data: {:?}", e).unwrap_infallible();
+                uwriteln!(serial, "Error reading Sensor data: {:?}", e).unwrap_infallible();
                 arduino_hal::delay_ms(100);
                 continue;
             }

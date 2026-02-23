@@ -1,4 +1,5 @@
 use arduino_hal::{i2c::Error, prelude::*, I2c};
+use ufmt::{uWrite, uwriteln};
 use ufmt_float::uFmt_f32;
 
 #[allow(dead_code)]
@@ -210,7 +211,7 @@ impl MPU6050 {
         }
     }
 
-    pub fn print(&self, serial: &mut arduino_hal::hal::usart::Usart0<arduino_hal::DefaultClock>) {
+    pub fn print<W: uWrite<Error = ::core::convert::Infallible>>(&self, serial: &mut W) {
         // Acc X
         let mut data = self.get_data(Sensor::AccX);
         let mut data_sym = "";
@@ -218,7 +219,7 @@ impl MPU6050 {
             data_sym = "-";
             data = data * -1.0;
         }
-        ufmt::uwriteln!(serial, "Acc X: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+        uwriteln!(serial, "Acc X: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Acc Y
         let mut data = self.get_data(Sensor::AccY);
@@ -227,7 +228,7 @@ impl MPU6050 {
             data_sym = "-";
             data = data * -1.0;
         }
-        ufmt::uwriteln!(serial, "Acc Y: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+        uwriteln!(serial, "Acc Y: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Acc Z
         let mut data = self.get_data(Sensor::AccZ);
@@ -236,7 +237,7 @@ impl MPU6050 {
             data_sym = "-";
             data = data * -1.0;
         }
-        ufmt::uwriteln!(serial, "Acc Z: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+        uwriteln!(serial, "Acc Z: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Temp
         let mut data = self.get_data(Sensor::Temp);
@@ -245,7 +246,7 @@ impl MPU6050 {
             data_sym = "-";
             data = data * -1.0;
         }
-        ufmt::uwriteln!(serial, "Temp: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+        uwriteln!(serial, "Temp: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr X
         let mut data = self.get_data(Sensor::GyrX);
@@ -254,7 +255,7 @@ impl MPU6050 {
             data_sym = "-";
             data = data * -1.0;
         }
-        ufmt::uwriteln!(serial, "Gyr X {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+        uwriteln!(serial, "Gyr X {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr Y
         let mut data = self.get_data(Sensor::GyrY);
@@ -263,7 +264,7 @@ impl MPU6050 {
             data_sym = "-";
             data = data * -1.0;
         }
-        ufmt::uwriteln!(serial, "Gyr Y {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+        uwriteln!(serial, "Gyr Y {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr Z
         let mut data = self.get_data(Sensor::GyrZ);
@@ -272,8 +273,8 @@ impl MPU6050 {
             data_sym = "-";
             data = data * -1.0;
         }
-        ufmt::uwriteln!(serial, "Gyr Z {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+        uwriteln!(serial, "Gyr Z {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
-        ufmt::uwriteln!(serial, "_______").unwrap_infallible();
+        uwriteln!(serial, "_______").unwrap_infallible();
     }
 }
