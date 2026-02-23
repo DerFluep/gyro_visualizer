@@ -3,7 +3,7 @@
 
 mod mpu6050;
 
-use arduino_hal::{default_serial, hal::wdt, prelude::*, I2c};
+use arduino_hal::{default_serial, prelude::*, I2c};
 use mpu6050::{AccConfig, Dlpf, GyrConfig, MPU6050};
 use panic_halt as _;
 use ufmt::uwriteln;
@@ -21,9 +21,6 @@ fn main() -> ! {
         100000,
     );
     let mut serial = default_serial!(dp, pins, 57600);
-
-    let mut watchdog = wdt::Wdt::new(dp.WDT, &dp.CPU.mcusr());
-    watchdog.start(wdt::Timeout::Ms2000).unwrap();
 
     let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Six) {
         Ok(v) => v,
@@ -52,7 +49,6 @@ fn main() -> ! {
         }
         mpu6050.print(&mut serial);
         led.toggle();
-        watchdog.feed();
         arduino_hal::delay_ms(250);
     }
 }
