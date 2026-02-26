@@ -10,9 +10,16 @@ use ufmt::uwriteln;
 
 #[arduino_hal::entry]
 fn main() -> ! {
-    let dp = arduino_hal::Peripherals::take().unwrap();
+    let dp = match arduino_hal::Peripherals::take() {
+        Some(periph) => periph,
+        None => {
+            panic!();
+        }
+    };
     let pins = arduino_hal::pins!(dp);
     let mut led = pins.d13.into_output();
+
+    let mut serial = default_serial!(dp, pins, 57600);
 
     let mut i2c = I2c::new(
         dp.TWI,
@@ -20,13 +27,11 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         100000,
     );
-    let mut serial = default_serial!(dp, pins, 57600);
 
     let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Six) {
         Ok(v) => v,
         Err(e) => {
-            uwriteln!(&mut serial, "Error while creating MPU6050 object: {:?}", e)
-                .unwrap_infallible();
+            uwriteln!(serial, "Error while creating MPU6050 object: {:?}", e).unwrap_infallible();
             panic!()
         }
     };
