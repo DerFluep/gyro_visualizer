@@ -1,12 +1,16 @@
+#![feature(abi_avr_interrupt)]
 #![no_std]
 #![no_main]
 
+mod millis;
 mod mpu6050;
 
 use arduino_hal::{default_serial, prelude::*, I2c};
 use mpu6050::{AccConfig, Dlpf, GyrConfig, MPU6050};
 use panic_halt as _;
 use ufmt::uwriteln;
+
+use crate::millis::millis_init;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -20,6 +24,8 @@ fn main() -> ! {
     let mut led = pins.d13.into_output();
 
     let mut serial = default_serial!(dp, pins, 57600);
+
+    millis_init(dp.TC0);
 
     let mut i2c = I2c::new(
         dp.TWI,
