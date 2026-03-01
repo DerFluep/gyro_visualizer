@@ -2,6 +2,8 @@ use arduino_hal::{i2c::Error, prelude::*, I2c};
 use ufmt::{uWrite, uwriteln};
 use ufmt_float::uFmt_f32;
 
+use crate::millis::millis;
+
 #[allow(dead_code)]
 pub enum AccConfig {
     Acc2g,
@@ -54,8 +56,21 @@ pub struct MPU6050 {
     gyr_conf: GyrConfig,
     acc_conf: AccConfig,
     raw_data: [u8; 14],
-    data: [i16; 7],
-    offsets: [i16; 7],
+    acc_x: f32,
+    acc_y: f32,
+    acc_z: f32,
+    temp: f32,
+    gyr_x: f32,
+    gyr_y: f32,
+    gyr_z: f32,
+    acc_x_off: i16,
+    acc_y_off: i16,
+    acc_z_off: i16,
+    gyr_x_off: i16,
+    gyr_y_off: i16,
+    gyr_z_off: i16,
+    rotations: [f32; 3],
+    last_read: u32,
 }
 
 impl MPU6050 {
@@ -123,54 +138,25 @@ impl MPU6050 {
             acc_conf,
             gyr_conf,
             raw_data: [0; 14],
-            data: [0; 7],
-            offsets: [0; 7],
+            acc_x: 0.0,
+            acc_y: 0.0,
+            acc_z: 0.0,
+            temp: 0.0,
+            gyr_x: 0.0,
+            gyr_y: 0.0,
+            gyr_z: 0.0,
+            acc_x_off: 0,
+            acc_y_off: 0,
+            acc_z_off: 0,
+            gyr_x_off: 0,
+            gyr_y_off: 0,
+            gyr_z_off: 0,
+            rotations: [0.0; 3],
+            last_read: 0,
         })
     }
 
     fn convert_data(&mut self) {
-        for n in 0..self.data.len() {
-            self.data[n] = i16::from_be_bytes([self.raw_data[n * 2], self.raw_data[n * 2 + 1]]);
-        }
-    }
-
-    pub fn read_data(&mut self, i2c: &mut I2c) -> Result<(), Error> {
-        i2c.write_read(
-            MPU6050::MPU_ADR,
-            &[MPU6050::SENSORS_START],
-            &mut self.raw_data,
-        )?;
-        self.convert_data();
-        Ok(())
-    }
-
-    pub fn calibrate(&mut self, i2c: &mut I2c) -> Result<(), Error> {
-        let temp_sensor = 3;
-        let mut offsets: [i32; 7] = [0; 7];
-        for _ in 0..200 {
-            self.read_data(i2c)?;
-            for (n, offset) in offsets.iter_mut().enumerate() {
-                if n == temp_sensor {
-                    // skip Temp calibration
-                    continue;
-                }
-                *offset += self.data[n] as i32;
-            }
-            arduino_hal::delay_ms(1);
-        }
-
-        for (n, val) in offsets.iter_mut().enumerate() {
-            if n == temp_sensor {
-                continue;
-            }
-            self.offsets[n] = (*val / 200) as i16;
-        }
-        self.offsets[2] -= 16384;
-
-        Ok(())
-    }
-
-    pub fn get_data(&self, sensor: Sensor) -> f32 {
         let acc_divider;
         let gyr_divider;
 
@@ -188,26 +174,88 @@ impl MPU6050 {
             GyrConfig::Gyr2000 => gyr_divider = 16.4,
         }
 
+        self.acc_x = i16::from_be_bytes([self.raw_data[0], self.raw_data[1]])
+            .saturating_sub(self.acc_x_off) as f32
+            / acc_divider;
+
+        self.acc_y = i16::from_be_bytes([self.raw_data[2], self.raw_data[3]])
+            .saturating_sub(self.acc_y_off) as f32
+            / acc_divider;
+
+        self.acc_z = i16::from_be_bytes([self.raw_data[4], self.raw_data[5]])
+            .saturating_sub(self.acc_z_off) as f32
+            / acc_divider;
+
+        self.temp = i16::from_be_bytes([self.raw_data[6], self.raw_data[7]]) as f32 / 340.0 + 36.53;
+
+        self.gyr_x = i16::from_be_bytes([self.raw_data[8], self.raw_data[9]])
+            .saturating_sub(self.gyr_x_off) as f32
+            / gyr_divider;
+
+        self.gyr_y = i16::from_be_bytes([self.raw_data[10], self.raw_data[11]])
+            .saturating_sub(self.gyr_y_off) as f32
+            / gyr_divider;
+
+        self.gyr_z = i16::from_be_bytes([self.raw_data[12], self.raw_data[13]])
+            .saturating_sub(self.gyr_z_off) as f32
+            / gyr_divider;
+    }
+
+    pub fn read_data(&mut self, i2c: &mut I2c) -> Result<(), Error> {
+        self.last_read = millis();
+        i2c.write_read(
+            MPU6050::MPU_ADR,
+            &[MPU6050::SENSORS_START],
+            &mut self.raw_data,
+        )?;
+        self.convert_data();
+        Ok(())
+    }
+
+    pub fn calibrate(&mut self, i2c: &mut I2c) -> Result<(), Error> {
+        let mut acc_x_off = 0;
+        let mut acc_y_off = 0;
+        let mut acc_z_off = 0;
+        let mut gyr_x_off = 0;
+        let mut gyr_y_off = 0;
+        let mut gyr_z_off = 0;
+
+        for _ in 0..200 {
+            i2c.write_read(
+                MPU6050::MPU_ADR,
+                &[MPU6050::SENSORS_START],
+                &mut self.raw_data,
+            )?;
+
+            acc_x_off += i16::from_be_bytes([self.raw_data[0], self.raw_data[1]]) as i32;
+            acc_y_off += i16::from_be_bytes([self.raw_data[2], self.raw_data[3]]) as i32;
+            acc_z_off += i16::from_be_bytes([self.raw_data[4], self.raw_data[5]]) as i32;
+            gyr_x_off += i16::from_be_bytes([self.raw_data[8], self.raw_data[9]]) as i32;
+            gyr_y_off += i16::from_be_bytes([self.raw_data[10], self.raw_data[11]]) as i32;
+            gyr_z_off += i16::from_be_bytes([self.raw_data[12], self.raw_data[13]]) as i32;
+
+            arduino_hal::delay_ms(10);
+        }
+
+        self.acc_x_off = (acc_x_off / 200) as i16;
+        self.acc_y_off = (acc_y_off / 200) as i16;
+        self.acc_z_off = (acc_z_off / 200 - 16384) as i16;
+        self.gyr_x_off = (gyr_x_off / 200) as i16;
+        self.gyr_y_off = (gyr_y_off / 200) as i16;
+        self.gyr_z_off = (gyr_z_off / 200) as i16;
+
+        Ok(())
+    }
+
+    pub fn get_data(&self, sensor: Sensor) -> f32 {
         match sensor {
-            Sensor::AccX => {
-                return self.data[0].saturating_sub(self.offsets[0]) as f32 / acc_divider
-            }
-            Sensor::AccY => {
-                return self.data[1].saturating_sub(self.offsets[1]) as f32 / acc_divider
-            }
-            Sensor::AccZ => {
-                return self.data[2].saturating_sub(self.offsets[2]) as f32 / acc_divider
-            }
-            Sensor::Temp => return self.data[3] as f32 / 340.0 + 36.53,
-            Sensor::GyrX => {
-                return self.data[4].saturating_sub(self.offsets[4]) as f32 / gyr_divider
-            }
-            Sensor::GyrY => {
-                return self.data[5].saturating_sub(self.offsets[5]) as f32 / gyr_divider
-            }
-            Sensor::GyrZ => {
-                return self.data[6].saturating_sub(self.offsets[6]) as f32 / gyr_divider
-            }
+            Sensor::AccX => return self.acc_x,
+            Sensor::AccY => return self.acc_y,
+            Sensor::AccZ => return self.acc_z,
+            Sensor::Temp => return self.temp,
+            Sensor::GyrX => return self.gyr_x,
+            Sensor::GyrY => return self.gyr_y,
+            Sensor::GyrZ => return self.gyr_z,
         }
     }
 
