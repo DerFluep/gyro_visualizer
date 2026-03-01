@@ -24,7 +24,7 @@ pub enum GyrConfig {
 }
 
 #[allow(dead_code)]
-pub enum Sensor {
+pub enum Measurements {
     AccX,
     AccY,
     AccZ,
@@ -32,9 +32,13 @@ pub enum Sensor {
     GyrX,
     GyrY,
     GyrZ,
+    AccRoll,
+    AccPitch,
     GyrXRot,
     GyrYRot,
     GyrZRot,
+    CompRoll,
+    CompPitch,
 }
 
 /// |         |   ACCELEROMETER    |           GYROSCOPE              |
@@ -284,24 +288,28 @@ impl MPU6050 {
         Ok(())
     }
 
-    pub fn get_data(&self, sensor: Sensor) -> f32 {
+    pub fn get_data(&self, sensor: Measurements) -> f32 {
         match sensor {
-            Sensor::AccX => return self.acc_x,
-            Sensor::AccY => return self.acc_y,
-            Sensor::AccZ => return self.acc_z,
-            Sensor::Temp => return self.temp,
-            Sensor::GyrX => return self.gyr_x,
-            Sensor::GyrY => return self.gyr_y,
-            Sensor::GyrZ => return self.gyr_z,
-            Sensor::GyrXRot => return self.gyr_x_rot,
-            Sensor::GyrYRot => return self.gyr_y_rot,
-            Sensor::GyrZRot => return self.gyr_z_rot,
+            Measurements::AccX => return self.acc_x,
+            Measurements::AccY => return self.acc_y,
+            Measurements::AccZ => return self.acc_z,
+            Measurements::Temp => return self.temp,
+            Measurements::GyrX => return self.gyr_x,
+            Measurements::GyrY => return self.gyr_y,
+            Measurements::GyrZ => return self.gyr_z,
+            Measurements::AccRoll => return self.acc_roll,
+            Measurements::AccPitch => return self.acc_pitch,
+            Measurements::GyrXRot => return self.gyr_x_rot,
+            Measurements::GyrYRot => return self.gyr_y_rot,
+            Measurements::GyrZRot => return self.gyr_z_rot,
+            Measurements::CompRoll => return self.comp_roll,
+            Measurements::CompPitch => return self.comp_roll,
         }
     }
 
     pub fn print<W: uWrite<Error = ::core::convert::Infallible>>(&self, serial: &mut W) {
         // Acc X
-        let mut data = self.get_data(Sensor::AccX);
+        let mut data = self.get_data(Measurements::AccX);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -310,7 +318,7 @@ impl MPU6050 {
         uwriteln!(serial, "Acc X: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Acc Y
-        let mut data = self.get_data(Sensor::AccY);
+        let mut data = self.get_data(Measurements::AccY);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -319,7 +327,7 @@ impl MPU6050 {
         uwriteln!(serial, "Acc Y: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Acc Z
-        let mut data = self.get_data(Sensor::AccZ);
+        let mut data = self.get_data(Measurements::AccZ);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -328,7 +336,7 @@ impl MPU6050 {
         uwriteln!(serial, "Acc Z: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Temp
-        let mut data = self.get_data(Sensor::Temp);
+        let mut data = self.get_data(Measurements::Temp);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -337,7 +345,7 @@ impl MPU6050 {
         uwriteln!(serial, "Temp: {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr X
-        let mut data = self.get_data(Sensor::GyrX);
+        let mut data = self.get_data(Measurements::GyrX);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -346,7 +354,7 @@ impl MPU6050 {
         uwriteln!(serial, "Gyr X {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr Y
-        let mut data = self.get_data(Sensor::GyrY);
+        let mut data = self.get_data(Measurements::GyrY);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -355,7 +363,7 @@ impl MPU6050 {
         uwriteln!(serial, "Gyr Y {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr Z
-        let mut data = self.get_data(Sensor::GyrZ);
+        let mut data = self.get_data(Measurements::GyrZ);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -364,7 +372,7 @@ impl MPU6050 {
         uwriteln!(serial, "Gyr Z {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr X Rot
-        let mut data = self.get_data(Sensor::GyrXRot);
+        let mut data = self.get_data(Measurements::GyrXRot);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -373,7 +381,7 @@ impl MPU6050 {
         uwriteln!(serial, "Gyr X Rotation {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr Y Rot
-        let mut data = self.get_data(Sensor::GyrYRot);
+        let mut data = self.get_data(Measurements::GyrYRot);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
@@ -382,7 +390,7 @@ impl MPU6050 {
         uwriteln!(serial, "Gyr Y Rotation {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         // Gyr Z Rot
-        let mut data = self.get_data(Sensor::GyrZRot);
+        let mut data = self.get_data(Measurements::GyrZRot);
         let mut data_sym = "";
         if data < 0.0 {
             data_sym = "-";
