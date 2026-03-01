@@ -1,10 +1,12 @@
 use std::time::Duration;
 
 fn main() {
-    let mut port = serialport::new("/dev/ttyACM0", 57600)
+    let mut port = serialport::new("/dev/ttyACM0", 115200)
         .timeout(Duration::from_millis(250))
         .open()
         .expect("Failed to open port");
+
+    port.clear(serialport::ClearBuffer::Input).unwrap();
 
     let mut serial_buf = [0u8; 1];
     let mut buf = [0u8; 8];
@@ -30,8 +32,8 @@ fn main() {
                 }
                 let roll = f32::from_be_bytes(buf[0..4].try_into().unwrap());
                 let pitch = f32::from_be_bytes(buf[4..8].try_into().unwrap());
-                println!("Roll: {}", roll);
-                println!("Pitch: {}", pitch);
+                println!("Roll: {:.2}", roll);
+                println!("Pitch: {:.2}", pitch);
                 println!("______");
                 sync_state = 0;
             }

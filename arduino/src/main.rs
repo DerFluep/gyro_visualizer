@@ -22,7 +22,7 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut led = pins.d13.into_output();
 
-    let mut serial = default_serial!(dp, pins, 57600);
+    let mut serial = default_serial!(dp, pins, 115200);
 
     millis_init(dp.TC0);
     // Enable interrupts globally
