@@ -26,6 +26,8 @@ fn main() -> ! {
     let mut serial = default_serial!(dp, pins, 57600);
 
     millis_init(dp.TC0);
+    // Enable interrupts globally
+    unsafe { avr_device::interrupt::enable() };
 
     let mut i2c = I2c::new(
         dp.TWI,

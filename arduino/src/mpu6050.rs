@@ -29,6 +29,9 @@ pub enum Sensor {
     GyrX,
     GyrY,
     GyrZ,
+    GyrXRot,
+    GyrYRot,
+    GyrZRot,
 }
 
 /// |         |   ACCELEROMETER    |           GYROSCOPE              |
@@ -69,8 +72,10 @@ pub struct MPU6050 {
     gyr_x_off: i16,
     gyr_y_off: i16,
     gyr_z_off: i16,
-    rotations: [f32; 3],
-    last_read: u32,
+    gyr_x_rot: f32,
+    gyr_y_rot: f32,
+    gyr_z_rot: f32,
+    prev_time: u32,
 }
 
 impl MPU6050 {
@@ -151,13 +156,14 @@ impl MPU6050 {
             gyr_x_off: 0,
             gyr_y_off: 0,
             gyr_z_off: 0,
-            rotations: [0.0; 3],
-            last_read: 0,
+            gyr_x_rot: 0.0,
+            gyr_y_rot: 0.0,
+            gyr_z_rot: 0.0,
+            prev_time: millis(),
         })
     }
 
     pub fn read_data(&mut self, i2c: &mut I2c) -> Result<(), Error> {
-        self.last_read = millis();
         i2c.write_read(
             MPU6050::MPU_ADR,
             &[MPU6050::SENSORS_START],
@@ -210,6 +216,13 @@ impl MPU6050 {
         self.gyr_z = i16::from_be_bytes([self.raw_data[12], self.raw_data[13]])
             .saturating_sub(self.gyr_z_off) as f32
             / gyr_divider;
+
+        let now = millis();
+        self.gyr_x_rot += self.gyr_x * (now - self.prev_time) as f32 / 1000.0;
+        self.gyr_y_rot += self.gyr_y * (now - self.prev_time) as f32 / 1000.0;
+        self.gyr_z_rot += self.gyr_z * (now - self.prev_time) as f32 / 1000.0;
+
+        self.prev_time = now;
     }
 
     pub fn calibrate(&mut self, i2c: &mut I2c) -> Result<(), Error> {
@@ -234,7 +247,7 @@ impl MPU6050 {
             gyr_y_off += i16::from_be_bytes([self.raw_data[10], self.raw_data[11]]) as i32;
             gyr_z_off += i16::from_be_bytes([self.raw_data[12], self.raw_data[13]]) as i32;
 
-            arduino_hal::delay_ms(10);
+            arduino_hal::delay_ms(1);
         }
 
         self.acc_x_off = (acc_x_off / 200) as i16;
@@ -256,6 +269,9 @@ impl MPU6050 {
             Sensor::GyrX => return self.gyr_x,
             Sensor::GyrY => return self.gyr_y,
             Sensor::GyrZ => return self.gyr_z,
+            Sensor::GyrXRot => return self.gyr_x_rot,
+            Sensor::GyrYRot => return self.gyr_y_rot,
+            Sensor::GyrZRot => return self.gyr_z_rot,
         }
     }
 
@@ -322,6 +338,33 @@ impl MPU6050 {
             data = data * -1.0;
         }
         uwriteln!(serial, "Gyr Z {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Gyr X Rot
+        let mut data = self.get_data(Sensor::GyrXRot);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        uwriteln!(serial, "Gyr X Rotation {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Gyr Y Rot
+        let mut data = self.get_data(Sensor::GyrYRot);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        uwriteln!(serial, "Gyr Y Rotation {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Gyr Z Rot
+        let mut data = self.get_data(Sensor::GyrZRot);
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        uwriteln!(serial, "Gyr Z Rotation {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         uwriteln!(serial, "_______").unwrap_infallible();
     }
