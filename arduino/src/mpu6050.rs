@@ -1,4 +1,7 @@
+use core::f32::consts::PI;
+
 use arduino_hal::{i2c::Error, prelude::*, I2c};
+use micromath::F32Ext;
 use ufmt::{uWrite, uwriteln};
 use ufmt_float::uFmt_f32;
 
@@ -72,9 +75,13 @@ pub struct MPU6050 {
     gyr_x_off: i16,
     gyr_y_off: i16,
     gyr_z_off: i16,
+    acc_roll: f32,
+    acc_pitch: f32,
     gyr_x_rot: f32,
     gyr_y_rot: f32,
     gyr_z_rot: f32,
+    comp_roll: f32,
+    comp_pitch: f32,
     prev_time: u32,
 }
 
@@ -156,9 +163,13 @@ impl MPU6050 {
             gyr_x_off: 0,
             gyr_y_off: 0,
             gyr_z_off: 0,
+            acc_roll: 0.0,
+            acc_pitch: 0.0,
             gyr_x_rot: 0.0,
             gyr_y_rot: 0.0,
             gyr_z_rot: 0.0,
+            comp_roll: 0.0,
+            comp_pitch: 0.0,
             prev_time: millis(),
         })
     }
@@ -218,9 +229,20 @@ impl MPU6050 {
             / gyr_divider;
 
         let now = millis();
-        self.gyr_x_rot += self.gyr_x * (now - self.prev_time) as f32 / 1000.0;
-        self.gyr_y_rot += self.gyr_y * (now - self.prev_time) as f32 / 1000.0;
-        self.gyr_z_rot += self.gyr_z * (now - self.prev_time) as f32 / 1000.0;
+        let delta_t = now - self.prev_time;
+        self.gyr_x_rot += self.gyr_x * delta_t as f32 / 1000.0;
+        self.gyr_y_rot += self.gyr_y * delta_t as f32 / 1000.0;
+        self.gyr_z_rot += self.gyr_z * delta_t as f32 / 1000.0;
+
+        self.acc_roll = self.acc_y.atan2(self.acc_z) * 180.0 / PI;
+        self.acc_pitch = -self
+            .acc_x
+            .atan2((self.acc_y.powi(2) + self.acc_z.powi(2)).sqrt())
+            * 180.0
+            / PI;
+
+        self.comp_roll = self.acc_roll * 0.05 + self.gyr_x_rot * 0.95;
+        self.comp_pitch = self.acc_pitch * 0.05 + self.gyr_y_rot * 0.95;
 
         self.prev_time = now;
     }
@@ -233,7 +255,9 @@ impl MPU6050 {
         let mut gyr_y_off = 0;
         let mut gyr_z_off = 0;
 
-        for _ in 0..200 {
+        let repeats = 400;
+
+        for _ in 0..repeats {
             i2c.write_read(
                 MPU6050::MPU_ADR,
                 &[MPU6050::SENSORS_START],
@@ -250,12 +274,12 @@ impl MPU6050 {
             arduino_hal::delay_ms(1);
         }
 
-        self.acc_x_off = (acc_x_off / 200) as i16;
-        self.acc_y_off = (acc_y_off / 200) as i16;
-        self.acc_z_off = (acc_z_off / 200 - 16384) as i16;
-        self.gyr_x_off = (gyr_x_off / 200) as i16;
-        self.gyr_y_off = (gyr_y_off / 200) as i16;
-        self.gyr_z_off = (gyr_z_off / 200) as i16;
+        self.acc_x_off = (acc_x_off / repeats) as i16;
+        self.acc_y_off = (acc_y_off / repeats) as i16;
+        self.acc_z_off = (acc_z_off / repeats - 16384) as i16;
+        self.gyr_x_off = (gyr_x_off / repeats) as i16;
+        self.gyr_y_off = (gyr_y_off / repeats) as i16;
+        self.gyr_z_off = (gyr_z_off / repeats) as i16;
 
         Ok(())
     }
@@ -365,6 +389,42 @@ impl MPU6050 {
             data = data * -1.0;
         }
         uwriteln!(serial, "Gyr Z Rotation {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // acc roll
+        let mut data = self.acc_roll;
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        uwriteln!(serial, "Acc roll {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // acc pitch
+        let mut data = self.acc_pitch;
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        uwriteln!(serial, "Acc pitch {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Combined Roll
+        let mut data = self.comp_roll;
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        uwriteln!(serial, "Combined Roll {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
+
+        // Combined Pitch
+        let mut data = self.comp_pitch;
+        let mut data_sym = "";
+        if data < 0.0 {
+            data_sym = "-";
+            data = data * -1.0;
+        }
+        uwriteln!(serial, "Combined Pitch {}{}", data_sym, uFmt_f32::Two(data)).unwrap_infallible();
 
         uwriteln!(serial, "_______").unwrap_infallible();
     }

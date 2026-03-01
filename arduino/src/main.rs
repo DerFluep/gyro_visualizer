@@ -10,7 +10,7 @@ use mpu6050::{AccConfig, Dlpf, GyrConfig, MPU6050};
 use panic_halt as _;
 use ufmt::uwriteln;
 
-use crate::millis::millis_init;
+use crate::millis::{millis, millis_init};
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -36,7 +36,8 @@ fn main() -> ! {
         100000,
     );
 
-    let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Six) {
+    let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Zero)
+    {
         Ok(v) => v,
         Err(e) => {
             uwriteln!(serial, "Error while creating MPU6050 object: {:?}", e).unwrap_infallible();
@@ -51,6 +52,8 @@ fn main() -> ! {
         }
     }
 
+    let mut prev_time = millis();
+
     loop {
         match mpu6050.read_data(&mut i2c) {
             Ok(_) => {}
@@ -60,8 +63,12 @@ fn main() -> ! {
                 continue;
             }
         }
-        mpu6050.print(&mut serial);
-        led.toggle();
-        arduino_hal::delay_ms(250);
+
+        let now = millis();
+        if now - prev_time >= 250 {
+            mpu6050.print(&mut serial);
+            led.toggle();
+            prev_time = now;
+        }
     }
 }
