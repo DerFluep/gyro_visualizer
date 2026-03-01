@@ -179,11 +179,6 @@ impl MPU6050 {
     }
 
     pub fn read_data(&mut self, i2c: &mut I2c) -> Result<(), Error> {
-        // i2c.write_read(
-        //     MPU6050::MPU_ADR,
-        //     &[MPU6050::SENSORS_START],
-        //     &mut self.raw_data,
-        // )?;
         match i2c.write_read(
             MPU6050::MPU_ADR,
             &[MPU6050::SENSORS_START],
@@ -244,10 +239,10 @@ impl MPU6050 {
             / gyr_divider;
 
         let now = millis();
-        let delta_t = now - self.prev_time;
-        self.gyr_x_rot += self.gyr_x * delta_t as f32 / 1000.0;
-        self.gyr_y_rot += self.gyr_y * delta_t as f32 / 1000.0;
-        self.gyr_z_rot += self.gyr_z * delta_t as f32 / 1000.0;
+        let delta_t = (now as f32 - self.prev_time as f32) / 1000.0;
+        self.gyr_x_rot += self.gyr_x * delta_t;
+        self.gyr_y_rot += self.gyr_y * delta_t;
+        self.gyr_z_rot += self.gyr_z * delta_t;
 
         self.acc_roll = self.acc_y.atan2(self.acc_z) * 180.0 / PI;
         self.acc_pitch = -self
@@ -256,9 +251,11 @@ impl MPU6050 {
             * 180.0
             / PI;
 
-        self.comp_roll = self.acc_roll * 0.05 + self.gyr_x_rot * 0.95;
-        self.comp_pitch = self.acc_pitch * 0.05 + self.gyr_y_rot * 0.95;
-
+        let alpha = 0.98;
+        self.comp_roll =
+            alpha * (self.comp_roll + self.gyr_x * delta_t) + (1.0 - alpha) * self.acc_roll;
+        self.comp_pitch =
+            alpha * (self.comp_pitch + self.gyr_y * delta_t) + (1.0 - alpha) * self.acc_pitch;
         self.prev_time = now;
     }
 
