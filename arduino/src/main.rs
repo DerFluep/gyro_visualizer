@@ -6,7 +6,7 @@ mod millis;
 mod mpu6050;
 
 use arduino_hal::{default_serial, prelude::*, I2c};
-use mpu6050::{AccConfig, Dlpf, GyrConfig, MPU6050};
+use mpu6050::{AccConfig, Dlpf, GyrConfig, Measurements, MPU6050};
 use panic_halt as _;
 use ufmt::uwriteln;
 
@@ -36,8 +36,7 @@ fn main() -> ! {
         100000,
     );
 
-    let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Zero)
-    {
+    let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Two) {
         Ok(v) => v,
         Err(e) => {
             uwriteln!(serial, "Error while creating MPU6050 object: {:?}", e).unwrap_infallible();
@@ -66,7 +65,18 @@ fn main() -> ! {
 
         let now = millis();
         if now - prev_time >= 250 {
-            mpu6050.print(&mut serial);
+            serial.write_byte(0);
+
+            let mut bytes = mpu6050.get_data(Measurements::CompRoll).to_be_bytes();
+            for byte in bytes.iter() {
+                serial.write_byte(*byte);
+            }
+
+            bytes = mpu6050.get_data(Measurements::CompPitch).to_be_bytes();
+            for byte in bytes.iter() {
+                serial.write_byte(*byte);
+            }
+
             led.toggle();
             prev_time = now;
         }
