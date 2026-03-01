@@ -156,6 +156,17 @@ impl MPU6050 {
         })
     }
 
+    pub fn read_data(&mut self, i2c: &mut I2c) -> Result<(), Error> {
+        self.last_read = millis();
+        i2c.write_read(
+            MPU6050::MPU_ADR,
+            &[MPU6050::SENSORS_START],
+            &mut self.raw_data,
+        )?;
+        self.convert_data();
+        Ok(())
+    }
+
     fn convert_data(&mut self) {
         let acc_divider;
         let gyr_divider;
@@ -199,17 +210,6 @@ impl MPU6050 {
         self.gyr_z = i16::from_be_bytes([self.raw_data[12], self.raw_data[13]])
             .saturating_sub(self.gyr_z_off) as f32
             / gyr_divider;
-    }
-
-    pub fn read_data(&mut self, i2c: &mut I2c) -> Result<(), Error> {
-        self.last_read = millis();
-        i2c.write_read(
-            MPU6050::MPU_ADR,
-            &[MPU6050::SENSORS_START],
-            &mut self.raw_data,
-        )?;
-        self.convert_data();
-        Ok(())
     }
 
     pub fn calibrate(&mut self, i2c: &mut I2c) -> Result<(), Error> {
