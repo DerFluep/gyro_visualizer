@@ -64,8 +64,11 @@ fn main() -> ! {
         }
 
         let now = millis();
-        if now - prev_time >= 250 {
-            serial.write_byte(0);
+        if now - prev_time >= 10 {
+            serial.write_byte(0xAA);
+            serial.write_byte(0xBB);
+            serial.write_byte(0xCC);
+            serial.write_byte(0xDD);
 
             let mut bytes = mpu6050.get_data(Measurements::CompRoll).to_be_bytes();
             for byte in bytes.iter() {
