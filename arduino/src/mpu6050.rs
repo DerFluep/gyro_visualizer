@@ -259,7 +259,7 @@ impl MPU6050 {
         let mut gyr_y_off = 0;
         let mut gyr_z_off = 0;
 
-        let repeats = 400;
+        let repeats = 1000;
 
         for _ in 0..repeats {
             i2c.write_read(
@@ -288,8 +288,8 @@ impl MPU6050 {
         Ok(())
     }
 
-    pub fn get_data(&self, sensor: Measurements) -> f32 {
-        match sensor {
+    pub fn get_data(&self, measurement: Measurements) -> f32 {
+        match measurement {
             Measurements::AccX => return self.acc_x,
             Measurements::AccY => return self.acc_y,
             Measurements::AccZ => return self.acc_z,
@@ -303,10 +303,11 @@ impl MPU6050 {
             Measurements::GyrYRot => return self.gyr_y_rot,
             Measurements::GyrZRot => return self.gyr_z_rot,
             Measurements::CompRoll => return self.comp_roll,
-            Measurements::CompPitch => return self.comp_roll,
+            Measurements::CompPitch => return self.comp_pitch,
         }
     }
 
+    #[allow(dead_code)]
     pub fn print<W: uWrite<Error = ::core::convert::Infallible>>(&self, serial: &mut W) {
         // Acc X
         let mut data = self.get_data(Measurements::AccX);
