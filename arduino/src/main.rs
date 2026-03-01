@@ -5,10 +5,9 @@
 mod millis;
 mod mpu6050;
 
-use arduino_hal::{default_serial, prelude::*, I2c};
+use arduino_hal::{default_serial, delay_ms, I2c};
 use mpu6050::{AccConfig, Dlpf, GyrConfig, Measurements, MPU6050};
 use panic_halt as _;
-use ufmt::uwriteln;
 
 use crate::millis::{millis, millis_init};
 
@@ -37,18 +36,28 @@ fn main() -> ! {
     );
 
     let mut mpu6050 = match MPU6050::new(&mut i2c, GyrConfig::Gyr250, AccConfig::Acc2g, Dlpf::Two) {
-        Ok(v) => v,
-        Err(e) => {
-            uwriteln!(serial, "Error while creating MPU6050 object: {:?}", e).unwrap_infallible();
-            panic!()
+        Ok(v) => {
+            led.set_low();
+            v
         }
+        Err(_) => loop {
+            led.set_high();
+            delay_ms(1000);
+            led.set_low();
+            delay_ms(250);
+        },
     };
 
     match mpu6050.calibrate(&mut i2c) {
-        Ok(_) => {}
-        Err(e) => {
-            uwriteln!(serial, "Error while Calibrating: {:?}", e).unwrap_infallible();
+        Ok(_) => {
+            led.set_low();
         }
+        Err(_) => loop {
+            led.set_high();
+            delay_ms(250);
+            led.set_low();
+            delay_ms(250);
+        },
     }
 
     let mut prev_time = millis();
@@ -56,9 +65,11 @@ fn main() -> ! {
     loop {
         match mpu6050.read_data(&mut i2c) {
             Ok(_) => {}
-            Err(e) => {
-                uwriteln!(serial, "Error reading Sensor data: {:?}", e).unwrap_infallible();
-                arduino_hal::delay_ms(100);
+            Err(_) => {
+                led.set_high();
+                delay_ms(50);
+                led.set_low();
+                delay_ms(50);
                 continue;
             }
         }
@@ -80,7 +91,6 @@ fn main() -> ! {
                 serial.write_byte(*byte);
             }
 
-            led.toggle();
             prev_time = now;
         }
     }
