@@ -179,11 +179,22 @@ impl MPU6050 {
     }
 
     pub fn read_data(&mut self, i2c: &mut I2c) -> Result<(), Error> {
-        i2c.write_read(
+        // i2c.write_read(
+        //     MPU6050::MPU_ADR,
+        //     &[MPU6050::SENSORS_START],
+        //     &mut self.raw_data,
+        // )?;
+        match i2c.write_read(
             MPU6050::MPU_ADR,
             &[MPU6050::SENSORS_START],
             &mut self.raw_data,
-        )?;
+        ) {
+            Ok(_) => {}
+            Err(e) => {
+                self.prev_time = millis();
+                return Err(e);
+            }
+        }
         self.convert_data();
         Ok(())
     }
