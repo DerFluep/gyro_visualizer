@@ -267,7 +267,7 @@ impl MPU6050 {
         let mut gyr_y_off = 0;
         let mut gyr_z_off = 0;
 
-        let repeats = 1000;
+        let repeats = 200;
 
         for _ in 0..repeats {
             i2c.write_read(
@@ -283,7 +283,7 @@ impl MPU6050 {
             gyr_y_off += i16::from_be_bytes([self.raw_data[10], self.raw_data[11]]) as i32;
             gyr_z_off += i16::from_be_bytes([self.raw_data[12], self.raw_data[13]]) as i32;
 
-            arduino_hal::delay_ms(1);
+            arduino_hal::delay_ms(10);
         }
 
         self.acc_x_off = (acc_x_off / repeats) as i16;
